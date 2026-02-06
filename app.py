@@ -1,51 +1,73 @@
 import os
 import streamlit as st
 import google.generativeai as genai
+
 from dotenv import load_dotenv
 load_dotenv()
+
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 
 # ------------------------
 # Gemini setup
 # ------------------------
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+model = genai.GenerativeModel("gemini-1.5-flash-latest")
 
-model = genai.GenerativeModel("gemini-2.5-flash")
+st.set_page_config(page_title="Personal RAG Bot")
+
+st.title("📄 Personal RAG Chatbot (Gemini)")
 
 # ------------------------
-# Load vector DB
+# Upload personal file
 # ------------------------
-embeddings = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
+uploaded_file = st.file_uploader(
+    "Upload your personal 2-page document (txt file)",
+    type=["txt"]
 )
 
-db = FAISS.load_local(
-    "faiss_index",
-    embeddings,
-    allow_dangerous_deserialization=True
-)
+@st.cache_resource
+def create_db(text):
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=500,
+        chunk_overlap=50
+    )
+
+    chunks = splitter.split_text(text)
+
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
+
+    db = FAISS.from_texts(chunks, embeddings)
+    return db
+
+
+db = None
+
+if uploaded_file:
+    text = uploaded_file.read().decode("utf-8")
+    db = create_db(text)
+    st.success("Document indexed successfully!")
 
 # ------------------------
-# Streamlit UI
+# Chat
 # ------------------------
-st.set_page_config(page_title="My Personal RAG Bot")
+if db:
+    query = st.text_input("Ask a question from your document")
 
-st.title("📄 My Personal RAG Chatbot (Gemini)")
+    if query:
+        docs = db.similarity_search(query, k=3)
 
-query = st.text_input("Ask a question from my personal document")
+        context = ""
+        for d in docs:
+            context += d.page_content + "\n\n"
 
-if query:
-    docs = db.similarity_search(query, k=3)
+        prompt = f"""
+Answer the question using only the information below.
 
-    context = ""
-    for i, d in enumerate(docs):
-        context += f"Document part {i+1}:\n{d.page_content}\n\n"
-
-    prompt = f"""
-Answer the question ONLY using the information below.
-
-If the answer is not present in the data, say:
+If the answer is not found, say:
 "I do not have this information in my document."
 
 Information:
@@ -55,7 +77,10 @@ Question:
 {query}
 """
 
-    response = model.generate_content(prompt)
+        response = model.generate_content(
+            prompt,
+            generation_config={"temperature": 0.2}
+        )
 
-    st.subheader("Answer")
-    st.write(response.text)
+        st.subheader("Answer")
+        st.write(response.text)
