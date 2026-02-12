@@ -13,7 +13,7 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 # Gemini setup
 # ------------------------
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-model = genai.GenerativeModel("gemini-1.5-flash-latest")
+model = genai.GenerativeModel("gemini-2.5-flash")
 
 st.set_page_config(page_title="Personal RAG Bot")
 
@@ -22,13 +22,13 @@ st.title("📄 Personal RAG Chatbot (Gemini)")
 # ------------------------
 # Upload personal file
 # ------------------------
-uploaded_file = st.file_uploader(
-    "Upload your personal 2-page document (txt file)",
-    type=["txt"]
-)
 
 @st.cache_resource
-def create_db(text):
+def load_rag_db():
+
+    with open("my_document.txt", "r", encoding="utf-8") as f:
+        text = f.read()
+
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,
         chunk_overlap=50
@@ -44,30 +44,26 @@ def create_db(text):
     return db
 
 
-db = None
+db = load_rag_db()
 
-if uploaded_file:
-    text = uploaded_file.read().decode("utf-8")
-    db = create_db(text)
-    st.success("Document indexed successfully!")
+st.success("Personal document loaded.")
 
-# ------------------------
+# -------------------------
 # Chat
-# ------------------------
-if db:
-    query = st.text_input("Ask a question from your document")
+# -------------------------
+query = st.text_input("Ask a question from my personal document")
 
-    if query:
-        docs = db.similarity_search(query, k=3)
+if query:
+    docs = db.similarity_search(query, k=3)
 
-        context = ""
-        for d in docs:
-            context += d.page_content + "\n\n"
+    context = ""
+    for d in docs:
+        context += d.page_content + "\n\n"
 
-        prompt = f"""
-Answer the question using only the information below.
+    prompt = f"""
+Answer the question only using the information below.
 
-If the answer is not found, say:
+If the answer is not present, say:
 "I do not have this information in my document."
 
 Information:
@@ -77,11 +73,10 @@ Question:
 {query}
 """
 
-        response = model.generate_content(
-            prompt,
-            generation_config={"temperature": 0.2}
-        )
+    response = model.generate_content(
+        prompt,
+        generation_config={"temperature": 0.2}
+    )
 
-        st.subheader("Answer")
-        st.write(response.text)
-
+    st.subheader("Answer")
+    st.write(response.text)
