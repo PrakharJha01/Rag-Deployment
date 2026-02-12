@@ -26,7 +26,7 @@ st.title("📄 Personal RAG Chatbot (Gemini)")
 @st.cache_resource
 def load_rag_db():
 
-    with open("my_document.txt", "r", encoding="utf-8") as f:
+    with open("my_data.txt", "r", encoding="utf-8") as f:
         text = f.read()
 
     splitter = RecursiveCharacterTextSplitter(
@@ -80,3 +80,4 @@ Question:
 
     st.subheader("Answer")
     st.write(response.text)
+
