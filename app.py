@@ -12,7 +12,7 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 # ------------------------
 # Gemini setup
 # ------------------------
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 model = genai.GenerativeModel("gemini-1.5-flash-latest")
 
 st.set_page_config(page_title="Personal RAG Bot")
@@ -84,3 +84,4 @@ Question:
 
         st.subheader("Answer")
         st.write(response.text)
+
